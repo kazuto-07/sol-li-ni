@@ -3,6 +3,10 @@ name = "sol-li-ni"
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
+repository = "https://github.com/kazuto-07/sol-li-ni"
+readme = "README.md"
+keywords = ["voice-agent", "webrtc", "speech", "ai", "realtime"]
+categories = ["multimedia::audio", "web-programming", "network-programming"]
 description = "Real-time voice agent: browser WebRTC in, Deepgram → OpenAI → Murf, voice back out."
 
 [dependencies]

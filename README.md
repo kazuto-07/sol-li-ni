@@ -1,6 +1,8 @@
 # sol-li-ni
 
-**A real-time voice agent written in Rust.**
+**An open-source, real-time AI voice agent written in Rust** — WebRTC, streaming speech-to-text,
+LLM and text-to-speech, with barge-in. A fast, low-latency alternative to Python and Node.js
+voice agent frameworks.
 
 Open a web page, tap the orb and talk. Your voice goes over WebRTC to a Rust server, which
 turns it into text, writes a reply with a language model and speaks it back. Every step
