@@ -95,11 +95,6 @@ cargo clippy --all-targets
 Each stage lives in its own module (`src/stt.rs`, `src/llm.rs`, `src/tts.rs`), so a new provider
 does not need to touch the rest of the pipeline. Never commit your `.env` file.
 
-## Learn more
-
-- [PLAN.md](PLAN.md) — design decisions
-- [WORKLOG.md](WORKLOG.md) — what was built and how it was tested
-
 ## License
 
 [MIT](LICENSE)
