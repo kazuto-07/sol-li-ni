@@ -1,0 +1,697 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sol-li-ni</title>
+<style>
+  :root {
+    --bg: #07070c;
+    --panel: rgba(255, 255, 255, 0.035);
+    --panel-border: rgba(255, 255, 255, 0.08);
+    --text: #ecebf5;
+    --muted: #8b8aa0;
+    --faint: #5b5a70;
+    --accent: #8b7cff;
+    --warn: #fbbf24;
+    --danger: #ff5c7a;
+
+    /* Orb colours, swapped per state. */
+    --c1: #6d5dfc;
+    --c2: #b45cff;
+    --c3: #4cc9f0;
+    --level: 0;
+  }
+
+  * { box-sizing: border-box; }
+  /* Author display rules (e.g. .setting { display: grid }) would otherwise override `hidden`. */
+  [hidden] { display: none !important; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: var(--text);
+    background:
+      radial-gradient(60rem 40rem at 50% 38%, color-mix(in srgb, var(--c1) 14%, transparent), transparent 70%),
+      var(--bg);
+    transition: background 1.2s ease;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .stage {
+    min-height: 100vh;
+    max-width: 34rem;
+    margin: 0 auto;
+    padding: 1.5rem 1.25rem 2.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.75rem;
+  }
+
+  /* ---------- top bar ---------- */
+  .top { display: flex; align-items: center; justify-content: space-between; }
+  .brand { display: flex; align-items: center; gap: .55rem; font-weight: 600; letter-spacing: .01em; }
+  .brand-mark {
+    width: .7rem; height: .7rem; border-radius: 50%;
+    background: linear-gradient(135deg, var(--c1), var(--c2));
+    box-shadow: 0 0 12px color-mix(in srgb, var(--c2) 70%, transparent);
+  }
+  .pill {
+    display: inline-flex; align-items: center; gap: .45rem;
+    padding: .35rem .75rem; border-radius: 999px;
+    background: var(--panel); border: 1px solid var(--panel-border);
+    font-size: .8rem; color: var(--muted); font-variant-numeric: tabular-nums;
+  }
+  .pill::before {
+    content: ""; width: .45rem; height: .45rem; border-radius: 50%; background: var(--faint);
+    transition: background .3s;
+  }
+  body[data-live="true"] .pill::before { background: #3ee08f; box-shadow: 0 0 8px #3ee08f; animation: blink 2s infinite; }
+  body[data-state="connecting"] .pill::before { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
+  body[data-state="error"] .pill::before { background: var(--danger); }
+
+  /* ---------- orb ---------- */
+  .orb-area {
+    flex: 1;
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 2.4rem;
+    padding-block: 1rem;
+  }
+
+  .orb {
+    --size: min(16rem, 62vw);
+    position: relative;
+    width: var(--size); height: var(--size);
+    border: 0; padding: 0; background: none;
+    border-radius: 50%;
+    cursor: pointer;
+    display: grid; place-items: center;
+    -webkit-tap-highlight-color: transparent;
+    outline: none;
+  }
+  .orb:focus-visible { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--accent); }
+
+  /* Soft glow that swells with the voice. */
+  .halo {
+    position: absolute; inset: -18%;
+    border-radius: 50%;
+    background: radial-gradient(circle, color-mix(in srgb, var(--c2) 45%, transparent), transparent 65%);
+    filter: blur(22px);
+    opacity: calc(.35 + var(--level) * .9);
+    transform: scale(calc(.9 + var(--level) * .35));
+    transition: opacity .12s linear, transform .12s linear;
+  }
+
+  /* Ripples that roll outward while the agent talks. */
+  .ripple {
+    position: absolute; inset: 0; border-radius: 50%;
+    border: 1.5px solid color-mix(in srgb, var(--c2) 55%, transparent);
+    opacity: 0; transform: scale(1);
+  }
+  body[data-state="agent"] .ripple { animation: ripple 2.4s cubic-bezier(.2,.6,.3,1) infinite; }
+  body[data-state="agent"] .ripple:nth-child(3) { animation-delay: .8s; }
+  body[data-state="agent"] .ripple:nth-child(4) { animation-delay: 1.6s; }
+
+  /* Spinner ring while connecting. */
+  .spinner {
+    position: absolute; inset: -6%;
+    border-radius: 50%;
+    background: conic-gradient(from 0deg, transparent 0 65%, var(--c3) 85%, transparent);
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+            mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+    opacity: 0; transition: opacity .3s;
+  }
+  body[data-state="connecting"] .spinner { opacity: 1; animation: spin 1.1s linear infinite; }
+
+  /* The bubble itself: glassy sphere with drifting colour blobs inside. */
+  .core {
+    position: relative;
+    width: 100%; height: 100%;
+    border-radius: 50%;
+    overflow: hidden;
+    background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--c3) 35%, #1a1830), #0d0c18 72%);
+    box-shadow:
+      inset 0 0 40px color-mix(in srgb, var(--c1) 55%, transparent),
+      inset 0 -12px 30px rgba(0,0,0,.45),
+      0 20px 60px -20px color-mix(in srgb, var(--c1) 70%, transparent);
+    transform: scale(calc(1 + var(--level) * .13));
+    transition: transform .09s linear, box-shadow .8s ease;
+    animation: breathe 5s ease-in-out infinite;
+  }
+  body[data-live="true"] .core { animation: none; }
+
+  .blob {
+    position: absolute;
+    width: 70%; height: 70%;
+    border-radius: 50%;
+    filter: blur(24px);
+    mix-blend-mode: screen;
+    opacity: .85;
+    transition: background .45s ease;
+  }
+  .b1 { background: var(--c1); top: -8%; left: -6%; animation: drift1 9s ease-in-out infinite; }
+  .b2 { background: var(--c2); bottom: -12%; right: -10%; animation: drift2 11s ease-in-out infinite; }
+  .b3 { background: var(--c3); top: 30%; left: 30%; width: 45%; height: 45%; opacity: .55; animation: drift3 7s ease-in-out infinite; }
+  /* Speaking stirs the colours faster. */
+  body[data-state="agent"] .blob, body[data-state="user"] .blob { animation-duration: 2.8s; }
+
+  /* Specular highlight: sells the "bubble". */
+  .gloss {
+    position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
+    background:
+      radial-gradient(40% 28% at 32% 22%, rgba(255,255,255,.38), transparent 70%),
+      radial-gradient(60% 60% at 50% 120%, rgba(255,255,255,.07), transparent 70%);
+  }
+
+  .icon {
+    position: absolute;
+    width: 2.4rem; height: 2.4rem;
+    color: rgba(255,255,255,.92);
+    filter: drop-shadow(0 2px 8px rgba(0,0,0,.4));
+    transition: opacity .35s, transform .35s;
+    pointer-events: none;
+  }
+  .icon-hangup { opacity: 0; transform: scale(.6) rotate(-30deg); }
+  body[data-live="true"] .icon-mic { opacity: 0; transform: scale(.6); }
+  body[data-live="true"] .orb:hover .icon-hangup,
+  body[data-live="true"] .orb:focus-visible .icon-hangup { opacity: 1; transform: none; }
+
+  .orb:hover .core { filter: brightness(1.12); }
+  .orb:active .core { transform: scale(.97); }
+
+  /* ---------- state label + level bars ---------- */
+  .readout { display: grid; justify-items: center; gap: .6rem; min-height: 4.5rem; }
+  .label {
+    margin: 0; font-size: 1.25rem; font-weight: 600; letter-spacing: -.01em;
+    transition: opacity .25s;
+  }
+  .label.swap { opacity: 0; }
+  .hint { margin: 0; font-size: .85rem; color: var(--muted); text-align: center; max-width: 22rem; }
+  body[data-state="error"] .hint { color: var(--danger); }
+
+  .bars { display: flex; align-items: center; gap: 4px; height: 0; opacity: 0; transition: opacity .3s, height .3s; }
+  body[data-live="true"] .bars { opacity: 1; height: 1.6rem; }
+  .bars span {
+    width: 4px; border-radius: 4px;
+    height: calc(4px + var(--h, 0) * 22px);
+    background: linear-gradient(var(--c3), var(--c2));
+    transition: height .08s linear, background .45s ease;
+  }
+
+  /* ---------- state palettes ---------- */
+  body[data-state="connecting"] { --c1: #3d6bff; --c2: #6d5dfc; --c3: #4cc9f0; }
+  body[data-state="listening"]  { --c1: #3b82f6; --c2: #6d5dfc; --c3: #2dd4bf; }
+  body[data-state="user"]       { --c1: #06b6d4; --c2: #3b82f6; --c3: #5eead4; }
+  body[data-state="agent"]      { --c1: #8b5cf6; --c2: #ec4899; --c3: #f59e0b; }
+  body[data-state="error"]      { --c1: #7f1d3a; --c2: #ff5c7a; --c3: #fb923c; }
+
+  /* ---------- settings ---------- */
+  .settings-panel {
+    border-radius: 1.1rem;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    backdrop-filter: blur(12px);
+    overflow: hidden;
+  }
+  .settings-panel summary {
+    list-style: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: .9rem 1.1rem; font-weight: 600; font-size: .92rem;
+    user-select: none;
+  }
+  .settings-panel summary::-webkit-details-marker { display: none; }
+  .summary-meta { color: var(--muted); font-weight: 400; font-size: .8rem; display: flex; align-items: center; gap: .5rem; }
+  .chevron { transition: transform .3s ease; }
+  .settings-panel[open] .chevron { transform: rotate(180deg); }
+  .settings-panel[open] .settings { animation: reveal .35s ease; }
+
+  fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+  fieldset:disabled { opacity: .45; }
+  .settings { display: grid; gap: 1.1rem; padding: .2rem 1.1rem 1.2rem; }
+  .settings-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.1rem; }
+  @media (max-width: 30rem) { .settings-row { grid-template-columns: 1fr; } }
+  .setting { display: grid; gap: .4rem; min-width: 0; }
+  .setting label { font-size: .8rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .setting small { color: var(--faint); font-size: .78rem; line-height: 1.45; }
+  .setting small.warn { color: var(--warn); }
+  .setting code { font-size: .92em; color: var(--muted); }
+  .setting input[type=text] {
+    width: 100%; padding: .6rem .75rem; border-radius: .65rem;
+    border: 1px solid var(--panel-border); background: rgba(0,0,0,.3); color: var(--text);
+    font: inherit; font-size: .9rem; transition: border-color .2s, box-shadow .2s;
+  }
+  .setting input[type=text]::placeholder { color: var(--faint); }
+  .setting input[type=text]:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+  .slider-row { display: flex; align-items: center; gap: .8rem; }
+  .slider-row input[type=range] { flex: 1; accent-color: var(--accent); }
+  .slider-row output { min-width: 4.6rem; text-align: right; font-variant-numeric: tabular-nums; font-size: .88rem; }
+
+  /* ---------- animations ---------- */
+  @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.035); } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes blink { 50% { opacity: .35; } }
+  @keyframes ripple { 0% { opacity: .7; transform: scale(1); } 100% { opacity: 0; transform: scale(1.55); } }
+  @keyframes drift1 { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(22%,18%) scale(1.15); } }
+  @keyframes drift2 { 0%,100% { transform: translate(0,0) scale(1.1); } 50% { transform: translate(-20%,-24%) scale(.9); } }
+  @keyframes drift3 { 0%,100% { transform: translate(0,0); } 33% { transform: translate(-30%,10%); } 66% { transform: translate(20%,-25%); } }
+  @keyframes reveal { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .blob, .core, .ripple, .spinner, .pill::before { animation: none !important; }
+    .core, .halo { transition: none; }
+  }
+</style>
+</head>
+<body data-state="idle" data-live="false">
+<main class="stage">
+  <header class="top">
+    <div class="brand"><span class="brand-mark"></span> sol-li-ni</div>
+    <span id="status" class="pill">Idle</span>
+  </header>
+
+  <section class="orb-area">
+    <button id="call" class="orb" aria-label="Start call">
+      <span class="halo"></span>
+      <span class="spinner"></span>
+      <span class="ripple"></span>
+      <span class="ripple"></span>
+      <span class="ripple"></span>
+      <span class="core">
+        <span class="blob b1"></span>
+        <span class="blob b2"></span>
+        <span class="blob b3"></span>
+        <span class="gloss"></span>
+      </span>
+      <svg class="icon icon-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/>
+      </svg>
+      <svg class="icon icon-hangup" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 15.5c2.5-2.3 5.6-3.5 9-3.5s6.5 1.2 9 3.5l-2.2 2.5-3.6-1.3v-2.6a13 13 0 0 0-6.4 0v2.6L5.2 18z"/>
+      </svg>
+    </button>
+
+    <div class="readout" aria-live="polite">
+      <p id="label" class="label">Tap to talk</p>
+      <div class="bars" aria-hidden="true">
+        <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <p id="hint" class="hint">Start a call and just speak — interrupt any time.</p>
+    </div>
+  </section>
+
+  <details class="settings-panel">
+    <summary>
+      <span>Call settings</span>
+      <span class="summary-meta">
+        <span id="settings-summary"></span>
+        <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </span>
+    </summary>
+    <fieldset id="settings-fields">
+      <div class="settings">
+        <div class="setting" id="token-setting" hidden>
+          <label for="token">Access token</label>
+          <input type="password" id="token" placeholder="required by this server" autocomplete="off" spellcheck="false">
+          <small>Kept in this browser only and sent with each call.</small>
+        </div>
+        <div class="settings-row">
+          <div class="setting">
+            <label for="model">Model</label>
+            <input type="text" id="model" placeholder="server default" autocapitalize="off" autocorrect="off" spellcheck="false" list="model-suggestions">
+            <datalist id="model-suggestions">
+              <option value="gpt-5.2-mini"></option>
+              <option value="gpt-5.2-chat-latest"></option>
+              <option value="gpt-5.2-nano"></option>
+            </datalist>
+          </div>
+          <div class="setting">
+            <label for="voice">Voice</label>
+            <input type="text" id="voice" placeholder="server default" autocapitalize="off" autocorrect="off" spellcheck="false" list="voice-suggestions">
+            <datalist id="voice-suggestions">
+              <option value="en-US-natalie"></option>
+              <option value="en-US-terrell"></option>
+              <option value="en-UK-hazel"></option>
+            </datalist>
+          </div>
+        </div>
+        <div class="setting" id="base-url-setting" hidden>
+          <label for="base-url">Base URL</label>
+          <input type="text" id="base-url" placeholder="server default" autocapitalize="off" autocorrect="off" spellcheck="false" list="base-url-suggestions">
+          <datalist id="base-url-suggestions">
+            <option value="https://api.openai.com/v1"></option>
+            <option value="http://localhost:11434/v1"></option>
+          </datalist>
+          <small>Any OpenAI-compatible API root. Blank uses the server's <code>OPENAI_BASE_URL</code>. Your API key is sent to whatever you put here.</small>
+        </div>
+        <div class="setting">
+          <label for="endpointing">Endpointing</label>
+          <div class="slider-row">
+            <input type="range" id="endpointing" min="10" max="2000" step="10" value="300">
+            <output id="endpointing-out">300 ms</output>
+          </div>
+          <small>Silence before your turn is treated as over. Lower answers faster; too low cuts you off mid-pause.</small>
+        </div>
+        <div class="setting">
+          <label for="utterance">Utterance end</label>
+          <div class="slider-row">
+            <input type="range" id="utterance" min="100" max="5000" step="100" value="1000">
+            <output id="utterance-out">1000 ms</output>
+          </div>
+          <small id="utterance-note">Backstop: gap with no new words before the turn ends. Used when silence detection is unsure.</small>
+        </div>
+      </div>
+    </fieldset>
+  </details>
+
+  <audio id="remote" autoplay></audio>
+</main>
+
+<script>
+const body = document.body;
+const btn = document.getElementById('call');
+const statusEl = document.getElementById('status');
+const labelEl = document.getElementById('label');
+const hintEl = document.getElementById('hint');
+const remote = document.getElementById('remote');
+const fields = document.getElementById('settings-fields');
+const summary = document.getElementById('settings-summary');
+const bars = [...document.querySelectorAll('.bars span')];
+let pc = null;
+
+// ---------------------------------------------------------------- settings
+// Settings apply when a call starts, so they are locked for its duration.
+const sliders = [
+  { input: document.getElementById('endpointing'), out: document.getElementById('endpointing-out'), key: 'endpointing' },
+  { input: document.getElementById('utterance'), out: document.getElementById('utterance-out'), key: 'utterance_end_ms' },
+];
+
+for (const { input, out, key } of sliders) {
+  const saved = localStorage.getItem(key);
+  if (saved) input.value = saved;
+  const show = () => { out.textContent = `${input.value} ms`; updateSummary(); };
+  input.addEventListener('input', () => { show(); localStorage.setItem(key, input.value); });
+}
+
+// Below 1000 ms Deepgram has nothing new to measure: interim results arrive about once a second.
+const utterance = document.getElementById('utterance');
+const utteranceNote = document.getElementById('utterance-note');
+const BACKSTOP_NOTE = utteranceNote.textContent;
+const checkUtterance = () => {
+  const low = Number(utterance.value) < 1000;
+  utteranceNote.classList.toggle('warn', low);
+  utteranceNote.textContent = low
+    ? 'Below 1000 ms Deepgram gets nothing new to measure — interim results only arrive about once a second. To reply faster, lower Endpointing instead.'
+    : BACKSTOP_NOTE;
+};
+utterance.addEventListener('input', checkUtterance);
+
+// Blank means "whatever the server is configured with".
+const texts = [
+  { input: document.getElementById('model'), key: 'model' },
+  { input: document.getElementById('base-url'), key: 'base_url' },
+  { input: document.getElementById('voice'), key: 'voice' },
+];
+
+for (const { input, key } of texts) {
+  input.value = localStorage.getItem(key) ?? '';
+  input.addEventListener('input', () => { localStorage.setItem(key, input.value); updateSummary(); });
+}
+
+function updateSummary() {
+  const model = texts[0].input.value.trim() || 'default model';
+  summary.textContent = `${model} · ${sliders[0].input.value} ms`;
+}
+
+sliders.forEach(({ input, out }) => { out.textContent = `${input.value} ms`; });
+checkUtterance();
+updateSummary();
+
+const tokenInput = document.getElementById('token');
+tokenInput.value = localStorage.getItem('token') ?? '';
+tokenInput.addEventListener('input', () => localStorage.setItem('token', tokenInput.value));
+
+// What this server allows and defaults to. Controls it does not support stay hidden.
+let server = { access_token_required: false, allow_base_url_override: false };
+fetch('/config')
+  .then((r) => r.json())
+  .then((config) => {
+    server = config;
+    document.getElementById('token-setting').hidden = !config.access_token_required;
+    document.getElementById('base-url-setting').hidden = !config.allow_base_url_override;
+    texts[0].input.placeholder = `server default (${config.default_model})`;
+    texts[2].input.placeholder = `server default (${config.default_voice})`;
+  })
+  .catch(() => {});
+
+const settingsQuery = () => {
+  const params = new URLSearchParams(sliders.map(({ input, key }) => [key, input.value]));
+  for (const { input, key } of texts) {
+    if (key === 'base_url' && !server.allow_base_url_override) continue;
+    if (input.value.trim()) params.set(key, input.value.trim());
+  }
+  return params.toString();
+};
+
+/** Errors the caller can act on, in plain words. */
+class CallError extends Error {
+  constructor(message, { openSettings = false } = {}) {
+    super(message);
+    this.openSettings = openSettings;
+  }
+}
+
+// ---------------------------------------------------------------- visual state
+const LABELS = {
+  idle: ['Tap to talk', 'Start a call and just speak — interrupt any time.'],
+  connecting: ['Connecting…', 'Setting up audio and warming up the services.'],
+  listening: ['Listening', 'Go ahead, I’m all ears.'],
+  user: ['Hearing you', 'Pause when you’re done.'],
+  agent: ['Speaking', 'Talk over me to interrupt.'],
+  error: ['Something went wrong', ''],
+};
+
+let visualState = 'idle';
+function setState(state, hint) {
+  if (state === visualState && hint === undefined) return;
+  visualState = state;
+  body.dataset.state = state;
+  const [label, defaultHint] = LABELS[state];
+  const nextHint = hint ?? defaultHint;
+  if (labelEl.textContent !== label) {
+    labelEl.classList.add('swap');
+    setTimeout(() => {
+      labelEl.textContent = label;
+      hintEl.textContent = nextHint;
+      labelEl.classList.remove('swap');
+    }, 140);
+  } else {
+    hintEl.textContent = nextHint;
+  }
+}
+
+// ---------------------------------------------------------------- audio levels
+// The orb reacts to real audio: the caller's microphone and the agent's voice, measured with
+// Web Audio analysers. Nothing is routed to the speakers here — the <audio> element plays.
+let audioCtx = null;
+let micMeter = null;
+let agentMeter = null;
+let raf = 0;
+let callStarted = 0;
+
+function meter(stream) {
+  const source = audioCtx.createMediaStreamSource(stream);
+  const analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 512;
+  analyser.smoothingTimeConstant = 0.6;
+  source.connect(analyser);
+  return { analyser, data: new Float32Array(analyser.fftSize), freq: new Uint8Array(analyser.frequencyBinCount), level: 0 };
+}
+
+function read(m) {
+  if (!m) return 0;
+  m.analyser.getFloatTimeDomainData(m.data);
+  let sum = 0;
+  for (const v of m.data) sum += v * v;
+  const rms = Math.sqrt(sum / m.data.length);
+  // Speech RMS rarely passes 0.3; stretch it so quiet talk still moves the orb.
+  const target = Math.min(1, rms * 5);
+  // Rise fast, fall slowly: feels alive without flickering.
+  m.level += (target - m.level) * (target > m.level ? 0.5 : 0.12);
+  return m.level;
+}
+
+// Seven bars, lowest voice band in the middle so the shape reads as a waveform.
+const BAR_ORDER = [6, 4, 2, 0, 1, 3, 5];
+
+/** Average energy in log-spaced bands across the speech range, 0..1. */
+function voiceBands(m) {
+  m.analyser.getByteFrequencyData(m.freq);
+  const nyquist = audioCtx.sampleRate / 2;
+  const lo = Math.log(120), hi = Math.log(5000);
+  const out = [];
+  for (let b = 0; b < bars.length; b++) {
+    const from = Math.exp(lo + (hi - lo) * (b / bars.length));
+    const to = Math.exp(lo + (hi - lo) * ((b + 1) / bars.length));
+    const i0 = Math.floor((from / nyquist) * m.freq.length);
+    const i1 = Math.max(i0 + 1, Math.ceil((to / nyquist) * m.freq.length));
+    let sum = 0;
+    for (let i = i0; i < i1; i++) sum += m.freq[i];
+    out.push(Math.min(1, (sum / (i1 - i0) / 255) * 1.4));
+  }
+  return out;
+}
+
+// Hold a speaking state briefly after the sound stops, so pauses between words don't flicker.
+let heldState = 'listening';
+let heldUntil = 0;
+
+function frame(now) {
+  raf = requestAnimationFrame(frame);
+  const connected = pc?.connectionState === 'connected';
+  const mic = read(micMeter);
+  const agent = read(agentMeter);
+
+  let state;
+  if (!connected) state = 'connecting';
+  else if (agent > 0.06) state = 'agent';
+  else if (mic > 0.08) state = 'user';
+  else state = 'listening';
+
+  if (state === 'agent' || state === 'user') { heldState = state; heldUntil = now + 350; }
+  else if (connected && now < heldUntil) state = heldState;
+  setState(state);
+
+  const level = state === 'agent' ? agent : state === 'user' ? mic : 0;
+  body.style.setProperty('--level', level.toFixed(3));
+
+  // Level bars follow whoever is talking, shaped by the voice spectrum.
+  const m = state === 'user' ? micMeter : agentMeter;
+  if (m && (state === 'agent' || state === 'user')) {
+    const bands = voiceBands(m);
+    bars.forEach((bar, i) => {
+      const fromCentre = Math.abs(i - (bars.length - 1) / 2) / ((bars.length - 1) / 2);
+      const envelope = level * (1 - fromCentre * 0.55);
+      bar.style.setProperty('--h', Math.min(1, Math.max(bands[BAR_ORDER[i]], envelope)).toFixed(3));
+    });
+  } else {
+    bars.forEach((b, i) => b.style.setProperty('--h', (0.08 + 0.05 * Math.sin(now / 400 + i)).toFixed(3)));
+  }
+
+  if (callStarted && connected) {
+    watchForHangUp(now);
+    const s = Math.floor((Date.now() - callStarted) / 1000);
+    statusEl.textContent = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+  }
+}
+
+// The server sends audio every 20 ms for the whole call, silence included. When that stops, it
+// has hung up (for example at its call time limit) — much sooner than the browser reports it.
+let lastPackets = 0;
+let lastPacketsAt = 0;
+let checkingStats = false;
+
+async function watchForHangUp(now) {
+  if (checkingStats || !pc || now - lastPacketsAt < 500) return;
+  checkingStats = true;
+  try {
+    let packets = 0;
+    (await pc.getStats()).forEach((r) => { if (r.type === 'inbound-rtp' && r.kind === 'audio') packets = r.packetsReceived; });
+    if (packets !== lastPackets || !lastPacketsAt) {
+      lastPackets = packets;
+      lastPacketsAt = now;
+    } else if (now - lastPacketsAt > 2000 && pc) {
+      stop();
+      setState('idle', 'The call ended.');
+    }
+  } finally {
+    checkingStats = false;
+  }
+}
+
+// ---------------------------------------------------------------- call
+async function start() {
+  audioCtx ??= new AudioContext();
+  await audioCtx.resume();
+
+  pc = new RTCPeerConnection();
+  pc.onconnectionstatechange = () => {
+    if (pc?.connectionState === 'connected' && !callStarted) callStarted = Date.now();
+    if (pc && pc.connectionState === 'failed') {
+      stop();
+      setState('error', 'The connection dropped.');
+    }
+  };
+  pc.ontrack = (e) => {
+    const stream = e.streams[0] ?? new MediaStream([e.track]);
+    remote.srcObject = stream;
+    agentMeter = meter(stream);
+  };
+
+  // Browser-side echo cancellation / noise suppression keep the agent from hearing itself.
+  const mic = await navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+  });
+  mic.getTracks().forEach((t) => pc.addTrack(t, mic));
+  micMeter = meter(mic);
+
+  await pc.setLocalDescription(await pc.createOffer());
+  await new Promise((resolve) => {
+    if (pc.iceGatheringState === 'complete') return resolve();
+    pc.addEventListener('icegatheringstatechange', () => {
+      if (pc.iceGatheringState === 'complete') resolve();
+    });
+  });
+
+  const headers = { 'Content-Type': 'application/json' };
+  if (tokenInput.value.trim()) headers.Authorization = `Bearer ${tokenInput.value.trim()}`;
+  const res = await fetch(`/offer?${settingsQuery()}`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(pc.localDescription),
+  });
+  if (res.status === 401) throw new CallError('Enter the access token in Call settings.', { openSettings: true });
+  if (!res.ok) throw new CallError(await res.text());
+  await pc.setRemoteDescription(await res.json());
+}
+
+function stop() {
+  pc?.getSenders().forEach((s) => s.track?.stop());
+  pc?.close();
+  pc = null;
+  micMeter = agentMeter = null;
+  callStarted = 0;
+  lastPackets = 0;
+  lastPacketsAt = 0;
+  cancelAnimationFrame(raf);
+  body.dataset.live = 'false';
+  body.style.setProperty('--level', 0);
+  fields.disabled = false;
+  btn.setAttribute('aria-label', 'Start call');
+  statusEl.textContent = 'Idle';
+  setState('idle');
+}
+
+btn.onclick = () => {
+  if (pc) return stop();
+  body.dataset.live = 'true';
+  fields.disabled = true;
+  btn.setAttribute('aria-label', 'Hang up');
+  statusEl.textContent = 'Connecting';
+  setState('connecting');
+  raf = requestAnimationFrame(frame);
+  start().catch((e) => {
+    stop();
+    if (e.openSettings) {
+      const panel = document.querySelector('.settings-panel');
+      panel.open = true;
+      tokenInput.focus();
+    }
+    setState('error', e.name === 'NotAllowedError' ? 'Microphone access was blocked.' : e.message);
+  });
+};
+</script>
+</body>
+</html>

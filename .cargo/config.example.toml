@@ -1,0 +1,13 @@
+# Only for the Windows GNU toolchain (x86_64-pc-windows-gnu), and only if MinGW's `gcc`, `ar`
+# and `dlltool` are not on your PATH. Copy this file to `.cargo/config.toml` and point the paths
+# at your MinGW `bin` folder. Other toolchains and platforms ignore these settings.
+#
+# The compiler variables use cc-rs's target-suffixed names so they apply only when building for
+# x86_64-pc-windows-gnu. Plain CC/AR would also be used for Linux and Docker builds, and break them.
+
+[target.x86_64-pc-windows-gnu]
+rustflags = ["-Cdlltool=C:/path/to/mingw64/bin/dlltool.exe"]
+
+[env]
+CC_x86_64_pc_windows_gnu = "C:/path/to/mingw64/bin/gcc.exe"
+AR_x86_64_pc_windows_gnu = "C:/path/to/mingw64/bin/ar.exe"

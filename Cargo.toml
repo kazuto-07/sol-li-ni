@@ -1,0 +1,36 @@
+[package]
+name = "sol-li-ni"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Real-time voice agent: browser WebRTC in, Deepgram → OpenAI → Murf, voice back out."
+
+[dependencies]
+anyhow = "1.0.104"
+async-trait = "0.1.92"
+axum = "0.8"
+base64 = "0.23.1"
+bytes = "1.12.1"
+dotenvy = "0.15.7"
+eventsource-stream = "0.2.3"
+futures-util = "0.3.34"
+opus-rs = "0.1.33"
+rand = "0.10"
+reqwest = { version = "0.13.5", default-features = false, features = ["json", "stream", "rustls-no-provider", "http2", "charset"] }
+rtc = "0.20.5"
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+tokio = { version = "1.53.1", features = ["full"] }
+tokio-tungstenite = { version = "0.30.0", features = ["rustls-tls-webpki-roots"] }
+tracing = "0.1.44"
+tracing-subscriber = "0.3.23"
+webrtc = "0.20.5"
+
+# Dev builds were spending ~100 s per change linking a 239 MB binary that was almost entirely
+# dependency debug info. Keep line numbers for our own code (useful backtraces), none for deps.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false

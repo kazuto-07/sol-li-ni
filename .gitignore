@@ -1,0 +1,8 @@
+/target
+.env
+
+# Machine-specific compiler paths; see .cargo/config.example.toml
+.cargo/config.toml
+
+PLAN.md
+WORKLOG.md
