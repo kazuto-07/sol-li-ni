@@ -16,19 +16,24 @@ you talk over it.
 **Built for Indian callers.** It transcribes English (India), Hindi, Bengali, Gujarati, Kannada,
 Marathi, Punjabi, Tamil, Telugu and Urdu.
 
+It runs on a free-tier stack: Deepgram nova-3 for the transcription, Groq for the model, Murf
+for the voice. Any OpenAI-compatible API works in Groq's place — OpenAI, or a local
+[Ollama](https://ollama.com) — by changing one line in `.env`.
+
 The gear icon on the page opens the rest: the language, the system prompt that sets how the
 agent behaves, the model and its temperature, the voice, and how long a pause ends your turn.
 Each applies to the next call, so you can tune it by ear. See [Settings](#settings).
 
-> **Providers are experimental.** The current build uses Deepgram (speech-to-text), OpenAI or
-> any OpenAI-compatible API (language model) and Murf (text-to-speech). These were picked to
-> get the pipeline working and are not final. Support for more providers and models is planned.
+> **Providers are experimental.** The current build uses Deepgram (speech-to-text), Groq or any
+> other OpenAI-compatible API (language model) and Murf (text-to-speech). They were picked to be
+> fast and cheap to start with — Deepgram and Groq both have a free tier — and they are not
+> final. Support for more providers and models is planned.
 
 ## How to run
 
 **You need**
 - Rust ([rustup.rs](https://rustup.rs))
-- API keys for [Deepgram](https://console.deepgram.com), [OpenAI](https://platform.openai.com) and [Murf](https://murf.ai/api)
+- API keys for [Deepgram](https://console.deepgram.com), [Groq](https://console.groq.com/keys) and [Murf](https://murf.ai/api)
 - Chrome, Edge or Firefox
 - A C compiler (one dependency compiles C). Linux and macOS usually have one already. On Windows,
   it depends on your Rust toolchain:
@@ -41,7 +46,7 @@ Each applies to the next call, so you can tune it by ear. See [Settings](#settin
 
 ```sh
 git clone <repo-url> sol-li-ni && cd sol-li-ni
-cp .env.example .env     # add DEEPGRAM_API_KEY, OPENAI_API_KEY, MURF_API_KEY
+cp .env.example .env     # add DEEPGRAM_API_KEY, OPENAI_API_KEY (your Groq key), MURF_API_KEY
 cargo run --release
 ```
 
@@ -78,7 +83,7 @@ server is configured with.
 | Speech to text | Language | What the caller speaks. English (India), Hindi, Bengali, Gujarati, Kannada, Marathi, Punjabi, Tamil, Telugu or Urdu |
 | | Endpointing | Silence that ends your turn. **The main latency lever:** lower replies sooner, too low cuts you off mid-pause |
 | | Utterance end | Backstop gap for noisy rooms. Deepgram recommends 1000 ms or more |
-| Language model | Model | Model for this call |
+| Language model | Model | Model for this call, from whichever API `OPENAI_BASE_URL` points at (Groq by default) |
 | | System prompt | How the agent should behave. Kept short: it is resent every turn |
 | | Temperature | Off by default, which lets the model use its own — some models reject any other value |
 | | Base URL | Only shown when `ALLOW_BASE_URL_OVERRIDE=true` |

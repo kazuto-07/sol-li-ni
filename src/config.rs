@@ -7,8 +7,9 @@ use std::time::Duration;
 
 use anyhow::{Context, Result, bail};
 
-/// Overridden with `OPENAI_MODEL`; pick whichever fast chat model the account has.
-const DEFAULT_MODEL: &str = "gpt-5.2-mini";
+/// Overridden with `OPENAI_MODEL`; pick whichever fast chat model the account has. Names change
+/// often, and this one belongs to the default (Groq) endpoint.
+const DEFAULT_MODEL: &str = "openai/gpt-oss-20b";
 
 pub struct Config {
     /// Shared across calls so its connection pool is reused.

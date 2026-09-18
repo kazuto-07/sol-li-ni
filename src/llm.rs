@@ -12,7 +12,9 @@ use futures_util::{Stream, StreamExt};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info};
 
-pub const DEFAULT_BASE_URL: &str = "https://api.openai.com/v1";
+/// Groq by default: OpenAI-compatible, free to start with, and quick enough to keep the first
+/// token inside the latency budget. `OPENAI_BASE_URL` points this at any other such API.
+pub const DEFAULT_BASE_URL: &str = "https://api.groq.com/openai/v1";
 
 /// A warmup is an optimisation, never a reason to hold up a call.
 const WARM_TIMEOUT: Duration = Duration::from_secs(5);

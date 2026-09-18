@@ -434,9 +434,8 @@
           <label for="model">Model</label>
           <input type="text" id="model" placeholder="server default" autocapitalize="off" autocorrect="off" spellcheck="false" list="model-suggestions">
           <datalist id="model-suggestions">
-            <option value="gpt-5.2-mini"></option>
-            <option value="gpt-5.2-chat-latest"></option>
-            <option value="gpt-5.2-nano"></option>
+            <option value="openai/gpt-oss-20b"></option>
+            <option value="openai/gpt-oss-120b"></option>
           </datalist>
         </div>
         <div class="setting">
@@ -459,6 +458,7 @@
           <label for="base-url">Base URL</label>
           <input type="text" id="base-url" placeholder="server default" autocapitalize="off" autocorrect="off" spellcheck="false" list="base-url-suggestions">
           <datalist id="base-url-suggestions">
+            <option value="https://api.groq.com/openai/v1"></option>
             <option value="https://api.openai.com/v1"></option>
             <option value="http://localhost:11434/v1"></option>
           </datalist>
