@@ -26,6 +26,10 @@ pub struct Config {
     pub murf_key: String,
     pub murf_url: String,
     pub murf_voice: String,
+    /// Default instructions for the model. Calls may override it from the page.
+    pub system_prompt: String,
+    /// Default Deepgram language code (`en`, `multi`, `es`, …). Calls may override it.
+    pub stt_language: String,
 
     // ---- server
     /// Where the HTTP server listens.
@@ -78,6 +82,8 @@ impl Config {
             murf_key: var("MURF_API_KEY")?,
             murf_url: or("MURF_URL", crate::tts::DEFAULT_URL),
             murf_voice: or("MURF_VOICE", crate::tts::DEFAULT_VOICE),
+            system_prompt: or("SYSTEM_PROMPT", crate::llm::SYSTEM_PROMPT),
+            stt_language: or("STT_LANGUAGE", crate::stt::DEFAULT_LANGUAGE),
 
             addr: or("ADDR", "127.0.0.1:8080"),
             access_token: std::env::var("ACCESS_TOKEN").ok().filter(|t| !t.is_empty()),

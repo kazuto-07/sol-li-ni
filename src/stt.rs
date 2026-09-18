@@ -24,6 +24,13 @@ pub const DEFAULT_URL: &str = "wss://api.deepgram.com/v1/listen";
 /// Deepgram drops an idle stream after ~10 s; ping it well inside that.
 const KEEPALIVE: Duration = Duration::from_secs(4);
 
+/// Deepgram language code used when neither the page nor `STT_LANGUAGE` picks one.
+pub const DEFAULT_LANGUAGE: &str = "en";
+
+/// Every language the page offers — English, `multi`, and the Indian languages — is one nova-3
+/// transcribes. A code nova-3 does not know is a 400 from Deepgram when the call connects.
+const MODEL: &str = "nova-3";
+
 /// Turn-taking knobs, chosen per call from the web page so they can be tuned by ear.
 #[derive(Debug, Clone, Copy, serde::Deserialize)]
 #[serde(default)]
@@ -75,11 +82,16 @@ pub struct Session {
 
 /// Opens the socket. Deepgram closes an idle stream after about 10 seconds, so a session that
 /// is warmed but not yet fed is kept alive by [`Session::run`].
-pub async fn connect(url: &str, api_key: &str, endpointing: Endpointing) -> Result<Session> {
+pub async fn connect(
+    url: &str,
+    api_key: &str,
+    endpointing: Endpointing,
+    language: &str,
+) -> Result<Session> {
     let endpointing = endpointing.clamped();
     let params = [
-        ("model", "nova-3"),
-        ("language", "en"),
+        ("model", MODEL),
+        ("language", language),
         ("encoding", "linear16"),
         ("sample_rate", &SAMPLE_RATE.to_string()),
         ("channels", "1"),
@@ -107,8 +119,9 @@ pub async fn connect(url: &str, api_key: &str, endpointing: Endpointing) -> Resu
         .context("Deepgram connect failed (check DEEPGRAM_API_KEY)")?;
     debug!("deepgram handshake: {}", response.status());
     info!(
-        "deepgram warm in {} ms (endpointing {} ms, utterance end {} ms)",
+        "deepgram warm in {} ms ({MODEL}, language {}, endpointing {} ms, utterance end {} ms)",
         started.elapsed().as_millis(),
+        language,
         endpointing.endpointing,
         endpointing.utterance_end_ms,
     );
@@ -304,6 +317,7 @@ mod tests {
 
     /// 20 ms frames, as the pipeline sends them.
     const FRAME: f64 = 0.02;
+
 
     #[test]
     fn lag_is_measured_from_when_that_audio_was_sent() {

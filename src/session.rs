@@ -53,11 +53,32 @@ pub struct CallSettings {
     pub base_url: String,
     /// Murf voice id. Empty means the server default from `MURF_VOICE`.
     pub voice: String,
+    /// Instructions for the model. Empty means the server default from `SYSTEM_PROMPT`.
+    pub system_prompt: String,
+    /// Sampling temperature, as typed. Empty means "don't send one": several models only accept
+    /// their own default and reject the parameter outright.
+    pub temperature: String,
+    /// Deepgram language code. Empty means the server default from `STT_LANGUAGE`.
+    pub language: String,
 }
+
+/// A system prompt is resent with every turn, so an enormous one costs latency on each reply.
+const MAX_SYSTEM_PROMPT: usize = 2000;
 
 impl CallSettings {
     /// Rejects settings the caller got wrong, so they come back as 400 rather than 500.
     pub fn validate(&self, allow_base_url_override: bool) -> Result<(), String> {
+        if self.system_prompt.chars().count() > MAX_SYSTEM_PROMPT {
+            return Err(format!("the system prompt must be under {MAX_SYSTEM_PROMPT} characters"));
+        }
+        self.parsed_temperature()?;
+        // Deepgram's codes are letters and an optional region, e.g. `en`, `multi`, `pt-BR`.
+        if !self.language.is_empty()
+            && !self.language.chars().all(|c| c.is_ascii_alphabetic() || c == '-')
+        {
+            return Err("language must be a Deepgram language code, such as en or multi".to_owned());
+        }
+
         let base_url = self.base_url.trim();
         if base_url.is_empty() {
             return Ok(());
@@ -71,6 +92,17 @@ impl CallSettings {
         }
         Ok(())
     }
+
+    /// `None` leaves the parameter out, so the model uses its own default.
+    fn parsed_temperature(&self) -> Result<Option<f32>, String> {
+        match self.temperature.trim() {
+            "" => Ok(None),
+            value => match value.parse::<f32>() {
+                Ok(t) if (0.0..=2.0).contains(&t) => Ok(Some(t)),
+                _ => Err("temperature must be a number between 0 and 2".to_owned()),
+            },
+        }
+    }
 }
 
 impl Default for CallSettings {
@@ -82,6 +114,9 @@ impl Default for CallSettings {
             model: String::new(),
             base_url: String::new(),
             voice: String::new(),
+            system_prompt: String::new(),
+            temperature: String::new(),
+            language: String::new(),
         }
     }
 }
@@ -180,16 +215,32 @@ pub async fn accept_offer(
             chosen.to_owned()
         }
     };
-    info!("llm model: {model} at {base_url}");
+    // Validated above, so the only way here is a value the model accepts.
+    let temperature = settings.parsed_temperature().unwrap_or_default();
+    let system_prompt = match settings.system_prompt.trim() {
+        "" => config.system_prompt.clone(),
+        chosen => chosen.to_owned(),
+    };
+    let language = match settings.language.trim() {
+        "" => config.stt_language.clone(),
+        chosen => chosen.to_owned(),
+    };
+    info!(
+        "llm model: {model} at {base_url} (temperature {})",
+        temperature.map_or_else(|| "model default".to_owned(), |t| t.to_string())
+    );
+
+    let llm = crate::llm::Llm::new(
+        config.http.clone(),
+        &base_url,
+        config.openai_key.clone(),
+        model,
+    )
+    .with_temperature(temperature);
 
     // Warm the model's connection too: DNS, TLS and HTTP/2 setup off the critical path.
     tokio::spawn({
-        let llm = crate::llm::Llm::new(
-            config.http.clone(),
-            &base_url,
-            config.openai_key.clone(),
-            model.clone(),
-        );
+        let llm = llm.clone();
         async move { llm.warm().await }
     });
 
@@ -215,7 +266,7 @@ pub async fn accept_offer(
     let stt = AbortOnDrop::new(tokio::spawn({
         let config = Arc::clone(&config);
         async move {
-            stt::connect(&config.deepgram_url, &config.deepgram_key, endpointing).await
+            stt::connect(&config.deepgram_url, &config.deepgram_key, endpointing, &language).await
         }
     }));
 
@@ -291,8 +342,8 @@ pub async fn accept_offer(
 
     tokio::spawn(run_call(Call {
         config,
-        base_url,
-        model,
+        llm,
+        system_prompt,
         stt: stt.keep(),
         tts: tts.keep(),
         pc,
@@ -310,8 +361,8 @@ pub async fn accept_offer(
 /// Everything a negotiated call needs to run.
 struct Call {
     config: Arc<Config>,
-    base_url: String,
-    model: String,
+    llm: crate::llm::Llm,
+    system_prompt: String,
     stt: JoinHandle<Result<stt::Session>>,
     tts: JoinHandle<Result<tts::Session>>,
     pc: Arc<dyn PeerConnection>,
@@ -328,8 +379,8 @@ struct Call {
 async fn run_call(call: Call) {
     let Call {
         config,
-        base_url,
-        model,
+        llm,
+        system_prompt,
         stt,
         tts,
         pc,
@@ -363,9 +414,8 @@ async fn run_call(call: Call) {
         // Guarded: an error below returns early, and the agent (with its Deepgram and Murf
         // sockets) must not outlive the call either way.
         let _agent = AbortOnDrop::new(tokio::spawn(agent::run(
-            config,
-            base_url,
-            model,
+            llm,
+            system_prompt,
             stt,
             tts,
             AgentIo { mic, speaker: Arc::clone(&speaker) },
@@ -478,4 +528,50 @@ fn local_ip() -> Result<IpAddr> {
     let socket = UdpSocket::bind("0.0.0.0:0")?;
     socket.connect("8.8.8.8:80")?;
     Ok(socket.local_addr()?.ip())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn settings() -> CallSettings {
+        CallSettings::default()
+    }
+
+    #[test]
+    fn a_blank_temperature_means_the_model_decides() {
+        assert_eq!(settings().parsed_temperature(), Ok(None));
+
+        let set = CallSettings { temperature: "0.85".to_owned(), ..settings() };
+        assert_eq!(set.parsed_temperature(), Ok(Some(0.85)));
+    }
+
+    #[test]
+    fn a_temperature_outside_what_the_api_accepts_is_a_400_not_a_500() {
+        for bad in ["2.5", "-1", "warm"] {
+            let set = CallSettings { temperature: bad.to_owned(), ..settings() };
+            assert!(set.validate(false).is_err(), "{bad} should be rejected");
+        }
+    }
+
+    #[test]
+    fn a_system_prompt_is_capped_so_every_turn_does_not_carry_a_novel() {
+        let long = CallSettings {
+            system_prompt: "a".repeat(MAX_SYSTEM_PROMPT + 1),
+            ..settings()
+        };
+        assert!(long.validate(false).is_err());
+
+        let fine = CallSettings { system_prompt: "be terse".to_owned(), ..settings() };
+        assert!(fine.validate(false).is_ok());
+    }
+
+    #[test]
+    fn a_language_must_look_like_a_deepgram_code() {
+        let ok = CallSettings { language: "pt-BR".to_owned(), ..settings() };
+        assert!(ok.validate(false).is_ok());
+
+        let injected = CallSettings { language: "en&model=nova-2".to_owned(), ..settings() };
+        assert!(injected.validate(false).is_err());
+    }
 }

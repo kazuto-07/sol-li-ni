@@ -209,42 +209,94 @@
   body[data-state="error"]      { --c1: #7f1d3a; --c2: #ff5c7a; --c3: #fb923c; }
 
   /* ---------- settings ---------- */
-  .settings-panel {
-    border-radius: 1.1rem;
-    background: var(--panel);
+  /* The gear in the top bar; settings live in a dialog so the orb owns the page. */
+  .icon-btn {
+    display: grid; place-items: center;
+    width: 2.2rem; height: 2.2rem; padding: 0;
+    border-radius: 50%;
+    background: var(--panel); border: 1px solid var(--panel-border); color: var(--muted);
+    cursor: pointer;
+    transition: color .2s, background .2s, transform .3s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .icon-btn:hover { color: var(--text); background: rgba(255,255,255,.07); }
+  .icon-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent); }
+  #settings-btn:hover svg { transform: rotate(35deg); }
+  #settings-btn svg { transition: transform .4s ease; }
+  .top-right { display: flex; align-items: center; gap: .6rem; }
+
+  .settings-dialog {
+    width: min(30rem, calc(100vw - 2rem));
+    max-height: min(85vh, 48rem);
+    margin: auto;
+    padding: 0;
     border: 1px solid var(--panel-border);
-    backdrop-filter: blur(12px);
+    border-radius: 1.25rem;
+    background: #0d0d16;
+    color: var(--text);
+    box-shadow: 0 30px 80px -30px rgba(0,0,0,.9);
     overflow: hidden;
   }
-  .settings-panel summary {
-    list-style: none; cursor: pointer;
-    display: flex; align-items: center; justify-content: space-between;
-    padding: .9rem 1.1rem; font-weight: 600; font-size: .92rem;
-    user-select: none;
+  /* Head and foot stay put; only the settings themselves scroll. A plain div does the
+     scrolling: a fieldset will not shrink below its content, so it cannot be the scroller. */
+  .settings-dialog[open] { display: flex; flex-direction: column; }
+  .settings-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+  .settings-dialog::backdrop { background: rgba(4,4,10,.72); backdrop-filter: blur(6px); }
+  .settings-dialog[open] { animation: reveal .25s ease; }
+
+  .dialog-head {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem;
+    padding: 1.1rem 1.2rem .9rem;
+    border-bottom: 1px solid var(--panel-border);
   }
-  .settings-panel summary::-webkit-details-marker { display: none; }
-  .summary-meta { color: var(--muted); font-weight: 400; font-size: .8rem; display: flex; align-items: center; gap: .5rem; }
-  .chevron { transition: transform .3s ease; }
-  .settings-panel[open] .chevron { transform: rotate(180deg); }
-  .settings-panel[open] .settings { animation: reveal .35s ease; }
+  .dialog-head h2 { margin: 0; font-size: 1rem; letter-spacing: -.01em; }
+  .dialog-sub { margin: .25rem 0 0; font-size: .8rem; color: var(--muted); }
+
+  .group { display: grid; gap: .9rem; }
+  .group-head { display: flex; align-items: baseline; justify-content: space-between; gap: .6rem; }
+  .group-head h3 {
+    margin: 0; font-size: .78rem; font-weight: 700; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--text);
+  }
+  .group-head span { font-size: .75rem; color: var(--faint); }
+  .group + .group { border-top: 1px solid var(--panel-border); padding-top: 1.1rem; }
+
+  .dialog-foot {
+    margin: 0; padding: .85rem 1.2rem;
+    border-top: 1px solid var(--panel-border);
+    font-size: .78rem; color: var(--faint);
+  }
 
   fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
   fieldset:disabled { opacity: .45; }
-  .settings { display: grid; gap: 1.1rem; padding: .2rem 1.1rem 1.2rem; }
-  .settings-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.1rem; }
-  @media (max-width: 30rem) { .settings-row { grid-template-columns: 1fr; } }
+  .settings { display: grid; gap: 1.1rem; padding: 1.1rem 1.2rem; }
   .setting { display: grid; gap: .4rem; min-width: 0; }
   .setting label { font-size: .8rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
   .setting small { color: var(--faint); font-size: .78rem; line-height: 1.45; }
   .setting small.warn { color: var(--warn); }
   .setting code { font-size: .92em; color: var(--muted); }
-  .setting input[type=text] {
+  .setting input[type=text],
+  .setting input[type=password],
+  .setting textarea,
+  .setting select {
     width: 100%; padding: .6rem .75rem; border-radius: .65rem;
     border: 1px solid var(--panel-border); background: rgba(0,0,0,.3); color: var(--text);
     font: inherit; font-size: .9rem; transition: border-color .2s, box-shadow .2s;
   }
-  .setting input[type=text]::placeholder { color: var(--faint); }
-  .setting input[type=text]:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+  .setting textarea { resize: vertical; min-height: 4.5rem; line-height: 1.5; }
+  .setting select { appearance: none; cursor: pointer; }
+  .setting ::placeholder { color: var(--faint); }
+  .setting :is(input, textarea, select):focus {
+    outline: none; border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+  }
+  /* Beats `.setting label`, which shouts its labels in uppercase. */
+  .setting label.check {
+    display: flex; align-items: center; gap: .5rem;
+    font-size: .82rem; color: var(--muted); text-transform: none; letter-spacing: 0;
+    font-weight: 500; cursor: pointer;
+  }
+  .check input { accent-color: var(--accent); width: 1rem; height: 1rem; }
   .slider-row { display: flex; align-items: center; gap: .8rem; }
   .slider-row input[type=range] { flex: 1; accent-color: var(--accent); }
   .slider-row output { min-width: 4.6rem; text-align: right; font-variant-numeric: tabular-nums; font-size: .88rem; }
@@ -269,7 +321,15 @@
 <main class="stage">
   <header class="top">
     <div class="brand"><span class="brand-mark"></span> sol-li-ni</div>
-    <span id="status" class="pill">Idle</span>
+    <div class="top-right">
+      <span id="status" class="pill">Idle</span>
+      <button id="settings-btn" class="icon-btn" aria-label="Call settings" aria-haspopup="dialog">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+    </div>
   </header>
 
   <section class="orb-area">
@@ -302,49 +362,53 @@
     </div>
   </section>
 
-  <details class="settings-panel">
-    <summary>
-      <span>Call settings</span>
-      <span class="summary-meta">
-        <span id="settings-summary"></span>
-        <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-      </span>
-    </summary>
-    <fieldset id="settings-fields">
-      <div class="settings">
-        <div class="setting" id="token-setting" hidden>
+  <audio id="remote" autoplay></audio>
+</main>
+
+<dialog id="settings-dialog" class="settings-dialog" aria-labelledby="settings-title">
+  <form method="dialog" class="dialog-head">
+    <div>
+      <h2 id="settings-title">Call settings</h2>
+      <p class="dialog-sub" id="settings-summary"></p>
+    </div>
+    <button class="icon-btn" value="close" aria-label="Close settings">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </form>
+
+  <div class="settings-scroll">
+  <fieldset id="settings-fields">
+    <div class="settings">
+      <section class="group" id="token-setting" hidden>
+        <div class="group-head"><h3>Access</h3></div>
+        <div class="setting">
           <label for="token">Access token</label>
           <input type="password" id="token" placeholder="required by this server" autocomplete="off" spellcheck="false">
           <small>Kept in this browser only and sent with each call.</small>
         </div>
-        <div class="settings-row">
-          <div class="setting">
-            <label for="model">Model</label>
-            <input type="text" id="model" placeholder="server default" autocapitalize="off" autocorrect="off" spellcheck="false" list="model-suggestions">
-            <datalist id="model-suggestions">
-              <option value="gpt-5.2-mini"></option>
-              <option value="gpt-5.2-chat-latest"></option>
-              <option value="gpt-5.2-nano"></option>
-            </datalist>
-          </div>
-          <div class="setting">
-            <label for="voice">Voice</label>
-            <input type="text" id="voice" placeholder="server default" autocapitalize="off" autocorrect="off" spellcheck="false" list="voice-suggestions">
-            <datalist id="voice-suggestions">
-              <option value="en-US-natalie"></option>
-              <option value="en-US-terrell"></option>
-              <option value="en-UK-hazel"></option>
-            </datalist>
-          </div>
-        </div>
-        <div class="setting" id="base-url-setting" hidden>
-          <label for="base-url">Base URL</label>
-          <input type="text" id="base-url" placeholder="server default" autocapitalize="off" autocorrect="off" spellcheck="false" list="base-url-suggestions">
-          <datalist id="base-url-suggestions">
-            <option value="https://api.openai.com/v1"></option>
-            <option value="http://localhost:11434/v1"></option>
-          </datalist>
-          <small>Any OpenAI-compatible API root. Blank uses the server's <code>OPENAI_BASE_URL</code>. Your API key is sent to whatever you put here.</small>
+      </section>
+
+      <section class="group">
+        <div class="group-head"><h3>Speech to text</h3><span>Deepgram</span></div>
+        <div class="setting">
+          <label for="language">Language</label>
+          <select id="language">
+            <option value="">Server default</option>
+            <option value="multi">Mixed (code-switching)</option>
+            <option value="en-IN">English (India)</option>
+            <option value="hi">Hindi</option>
+            <option value="bn">Bengali</option>
+            <option value="gu">Gujarati</option>
+            <option value="kn">Kannada</option>
+            <option value="mr">Marathi</option>
+            <option value="pa">Punjabi</option>
+            <option value="ta">Tamil</option>
+            <option value="te">Telugu</option>
+            <option value="ur">Urdu</option>
+          </select>
+          <small>What the caller speaks. <b>Mixed</b> suits switching between English and an
+          Indian language mid-sentence. Pick a voice in the same language, or the reply comes
+          back in another one's accent.</small>
         </div>
         <div class="setting">
           <label for="endpointing">Endpointing</label>
@@ -362,12 +426,64 @@
           </div>
           <small id="utterance-note">Backstop: gap with no new words before the turn ends. Used when silence detection is unsure.</small>
         </div>
-      </div>
-    </fieldset>
-  </details>
+      </section>
 
-  <audio id="remote" autoplay></audio>
-</main>
+      <section class="group">
+        <div class="group-head"><h3>Language model</h3><span>OpenAI-compatible</span></div>
+        <div class="setting">
+          <label for="model">Model</label>
+          <input type="text" id="model" placeholder="server default" autocapitalize="off" autocorrect="off" spellcheck="false" list="model-suggestions">
+          <datalist id="model-suggestions">
+            <option value="gpt-5.2-mini"></option>
+            <option value="gpt-5.2-chat-latest"></option>
+            <option value="gpt-5.2-nano"></option>
+          </datalist>
+        </div>
+        <div class="setting">
+          <label for="system-prompt">System prompt</label>
+          <textarea id="system-prompt" rows="4" maxlength="2000" placeholder="server default" spellcheck="false"></textarea>
+          <small>How the agent should behave. Keep it short: it is resent with every turn, and
+          long replies are slow to speak.</small>
+        </div>
+        <div class="setting">
+          <label for="temperature">Temperature</label>
+          <div class="slider-row">
+            <input type="range" id="temperature" min="0" max="2" step="0.05" value="0.6" disabled>
+            <output id="temperature-out">model default</output>
+          </div>
+          <label class="check"><input type="checkbox" id="temperature-on"> Send a temperature</label>
+          <small>Lower is steadier, higher is more varied. Left off, the model uses its own
+          default — some models reject any other value.</small>
+        </div>
+        <div class="setting" id="base-url-setting" hidden>
+          <label for="base-url">Base URL</label>
+          <input type="text" id="base-url" placeholder="server default" autocapitalize="off" autocorrect="off" spellcheck="false" list="base-url-suggestions">
+          <datalist id="base-url-suggestions">
+            <option value="https://api.openai.com/v1"></option>
+            <option value="http://localhost:11434/v1"></option>
+          </datalist>
+          <small>Any OpenAI-compatible API root. Blank uses the server's <code>OPENAI_BASE_URL</code>. Your API key is sent to whatever you put here.</small>
+        </div>
+      </section>
+
+      <section class="group">
+        <div class="group-head"><h3>Text to speech</h3><span>Murf</span></div>
+        <div class="setting">
+          <label for="voice">Voice</label>
+          <input type="text" id="voice" placeholder="server default" autocapitalize="off" autocorrect="off" spellcheck="false" list="voice-suggestions">
+          <datalist id="voice-suggestions">
+            <option value="en-US-natalie"></option>
+            <option value="en-US-terrell"></option>
+            <option value="en-UK-hazel"></option>
+          </datalist>
+        </div>
+      </section>
+    </div>
+  </fieldset>
+  </div>
+
+  <p class="dialog-foot" id="settings-foot">Saved in this browser and applied when a call starts.</p>
+</dialog>
 
 <script>
 const body = document.body;
@@ -378,6 +494,8 @@ const hintEl = document.getElementById('hint');
 const remote = document.getElementById('remote');
 const fields = document.getElementById('settings-fields');
 const summary = document.getElementById('settings-summary');
+const dialog = document.getElementById('settings-dialog');
+const foot = document.getElementById('settings-foot');
 const bars = [...document.querySelectorAll('.bars span')];
 let pc = null;
 
@@ -408,11 +526,28 @@ const checkUtterance = () => {
 };
 utterance.addEventListener('input', checkUtterance);
 
+// Temperature is only sent when it is switched on: several models accept nothing but their own.
+const temperature = document.getElementById('temperature');
+const temperatureOn = document.getElementById('temperature-on');
+const temperatureOut = document.getElementById('temperature-out');
+
+function showTemperature() {
+  temperature.disabled = !temperatureOn.checked;
+  temperatureOut.textContent = temperatureOn.checked ? Number(temperature.value).toFixed(2) : 'model default';
+}
+temperature.value = localStorage.getItem('temperature') ?? '0.6';
+temperatureOn.checked = localStorage.getItem('temperature_on') === 'true';
+temperature.addEventListener('input', () => { localStorage.setItem('temperature', temperature.value); showTemperature(); });
+temperatureOn.addEventListener('change', () => { localStorage.setItem('temperature_on', temperatureOn.checked); showTemperature(); });
+showTemperature();
+
 // Blank means "whatever the server is configured with".
 const texts = [
   { input: document.getElementById('model'), key: 'model' },
   { input: document.getElementById('base-url'), key: 'base_url' },
   { input: document.getElementById('voice'), key: 'voice' },
+  { input: document.getElementById('system-prompt'), key: 'system_prompt' },
+  { input: document.getElementById('language'), key: 'language' },
 ];
 
 for (const { input, key } of texts) {
@@ -422,8 +557,22 @@ for (const { input, key } of texts) {
 
 function updateSummary() {
   const model = texts[0].input.value.trim() || 'default model';
-  summary.textContent = `${model} · ${sliders[0].input.value} ms`;
+  const voice = texts[2].input.value.trim() || 'default voice';
+  summary.textContent = `${model} · ${voice} · ${sliders[0].input.value} ms`;
 }
+
+// ---------------------------------------------------------------- settings dialog
+const LOCKED_NOTE = 'Locked while a call is live. Changes apply to your next call.';
+const SAVED_NOTE = foot.textContent;
+
+function openSettings() {
+  foot.textContent = fields.disabled ? LOCKED_NOTE : SAVED_NOTE;
+  dialog.showModal();
+}
+
+document.getElementById('settings-btn').addEventListener('click', openSettings);
+// Clicking the backdrop (outside the dialog box) closes it, as it does elsewhere on the web.
+dialog.addEventListener('click', (e) => { if (e.target === dialog) dialog.close(); });
 
 sliders.forEach(({ input, out }) => { out.textContent = `${input.value} ms`; });
 checkUtterance();
@@ -443,11 +592,16 @@ fetch('/config')
     document.getElementById('base-url-setting').hidden = !config.allow_base_url_override;
     texts[0].input.placeholder = `server default (${config.default_model})`;
     texts[2].input.placeholder = `server default (${config.default_voice})`;
+    if (config.default_system_prompt) texts[3].input.placeholder = config.default_system_prompt;
+    if (config.default_language) {
+      texts[4].input.options[0].textContent = `Server default (${config.default_language})`;
+    }
   })
   .catch(() => {});
 
 const settingsQuery = () => {
   const params = new URLSearchParams(sliders.map(({ input, key }) => [key, input.value]));
+  if (temperatureOn.checked) params.set('temperature', temperature.value);
   for (const { input, key } of texts) {
     if (key === 'base_url' && !server.allow_base_url_override) continue;
     if (input.value.trim()) params.set(key, input.value.trim());
@@ -652,7 +806,7 @@ async function start() {
     headers,
     body: JSON.stringify(pc.localDescription),
   });
-  if (res.status === 401) throw new CallError('Enter the access token in Call settings.', { openSettings: true });
+  if (res.status === 401) throw new CallError('Enter the access token in settings.', { openSettings: true });
   if (!res.ok) throw new CallError(await res.text());
   await pc.setRemoteDescription(await res.json());
 }
@@ -669,6 +823,7 @@ function stop() {
   body.dataset.live = 'false';
   body.style.setProperty('--level', 0);
   fields.disabled = false;
+  foot.textContent = SAVED_NOTE;
   btn.setAttribute('aria-label', 'Start call');
   statusEl.textContent = 'Idle';
   setState('idle');
@@ -678,6 +833,7 @@ btn.onclick = () => {
   if (pc) return stop();
   body.dataset.live = 'true';
   fields.disabled = true;
+  foot.textContent = LOCKED_NOTE;
   btn.setAttribute('aria-label', 'Hang up');
   statusEl.textContent = 'Connecting';
   setState('connecting');
@@ -685,8 +841,7 @@ btn.onclick = () => {
   start().catch((e) => {
     stop();
     if (e.openSettings) {
-      const panel = document.querySelector('.settings-panel');
-      panel.open = true;
+      openSettings();
       tokenInput.focus();
     }
     setState('error', e.name === 'NotAllowedError' ? 'Microphone access was blocked.' : e.message);

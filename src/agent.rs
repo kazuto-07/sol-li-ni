@@ -12,7 +12,6 @@ use tracing::{debug, info, warn};
 
 use crate::audio::{Frame, Speaker};
 use crate::chunker::Chunker;
-use crate::config::Config;
 use crate::llm::{Llm, Message};
 use crate::metrics::TurnMetrics;
 use crate::stt::{Session, SttEvent};
@@ -40,9 +39,8 @@ struct Turn {
 
 /// `stt` and `tts` are the sessions warmed up while the call was connecting.
 pub async fn run(
-    config: Arc<Config>,
-    base_url: String,
-    model: String,
+    llm: Llm,
+    system_prompt: String,
     stt: JoinHandle<anyhow::Result<Session>>,
     tts: JoinHandle<anyhow::Result<tts::Session>>,
     io: AgentIo,
@@ -87,8 +85,7 @@ pub async fn run(
         }
     };
 
-    let llm = Llm::new(config.http.clone(), &base_url, config.openai_key.clone(), model);
-    let history = Arc::new(Mutex::new(vec![Message::system(crate::llm::SYSTEM_PROMPT)]));
+    let history = Arc::new(Mutex::new(vec![Message::system(system_prompt)]));
 
     // Finals arrive segment by segment; the turn is whatever was said before the caller stopped.
     let mut turn = String::new();

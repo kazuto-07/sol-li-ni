@@ -59,6 +59,9 @@ pub struct Llm {
     url: String,
     api_key: String,
     model: String,
+    /// Left out of the request when `None`: some models only accept their own default, and
+    /// sending one anyway is an error.
+    temperature: Option<f32>,
 }
 
 impl Llm {
@@ -70,7 +73,14 @@ impl Llm {
             url: format!("{}/chat/completions", base_url.trim_end_matches('/')),
             api_key,
             model,
+            temperature: None,
         }
+    }
+
+    /// `None` keeps the model's own default.
+    pub fn with_temperature(mut self, temperature: Option<f32>) -> Self {
+        self.temperature = temperature;
+        self
     }
 
     /// Opens the connection before it is needed, so the first reply of a call does not pay for
@@ -90,7 +100,12 @@ impl Llm {
             .client
             .post(&self.url)
             .bearer_auth(&self.api_key)
-            .json(&Request { model: &self.model, messages, stream: true })
+            .json(&Request {
+                model: &self.model,
+                messages,
+                stream: true,
+                temperature: self.temperature,
+            })
             .send()
             .await
             .context("OpenAI request failed")?;
@@ -123,6 +138,8 @@ struct Request<'a> {
     model: &'a str,
     messages: &'a [Message],
     stream: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    temperature: Option<f32>,
 }
 
 #[derive(Deserialize)]

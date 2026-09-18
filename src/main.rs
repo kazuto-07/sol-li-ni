@@ -145,6 +145,8 @@ async fn client_config(State(app): State<App>) -> Json<Value> {
         "max_call_secs": config.max_call_duration.as_secs(),
         "default_model": config.openai_model,
         "default_voice": config.murf_voice,
+        "default_language": config.stt_language,
+        "default_system_prompt": config.system_prompt,
     }))
 }
 
