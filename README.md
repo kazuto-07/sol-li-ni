@@ -13,6 +13,13 @@ you talk over it.
  mic ──WebRTC──► speech-to-text ──► language model ──► text-to-speech ──WebRTC──► speaker
 ```
 
+**Built for Indian callers.** It transcribes English (India), Hindi, Bengali, Gujarati, Kannada,
+Marathi, Punjabi, Tamil, Telugu and Urdu.
+
+The gear icon on the page opens the rest: the language, the system prompt that sets how the
+agent behaves, the model and its temperature, the voice, and how long a pause ends your turn.
+Each applies to the next call, so you can tune it by ear. See [Settings](#settings).
+
 > **Providers are experimental.** The current build uses Deepgram (speech-to-text), OpenAI or
 > any OpenAI-compatible API (language model) and Murf (text-to-speech). These were picked to
 > get the pipeline working and are not final. Support for more providers and models is planned.
@@ -38,11 +45,11 @@ cp .env.example .env     # add DEEPGRAM_API_KEY, OPENAI_API_KEY, MURF_API_KEY
 cargo run --release
 ```
 
-Use `--release` to talk to it: audio is encoded and decoded live, and a debug build is much
-slower. Plain `cargo run` is for development — it rebuilds faster and reloads the web page from
-disk.
-
 Open <http://127.0.0.1:8080>, tap the orb, allow the microphone and start talking.
+
+Use `--release` when you actually want to talk to it: audio is encoded and decoded live, and a
+debug build is much slower at it. Plain `cargo run` is the one to develop against — it links
+faster, and it serves `web/index.html` from disk, so page edits need only a refresh.
 
 **No API keys?** Run the mock services in `examples/` instead:
 
@@ -58,6 +65,27 @@ settings in `.env.example`.
 **Deploying:** `cargo build --release` gives one self-contained binary (the web page is built in),
 or use the `Dockerfile`. Put it behind HTTPS, set `ACCESS_TOKEN` and `PUBLIC_IP`, and open the
 `RTC_PORT_MIN`–`RTC_PORT_MAX` UDP range. All settings are documented in `.env.example`.
+
+## Settings
+
+The gear icon in the top-right opens the call settings. They are saved in your browser, apply
+when a call starts, and are locked while one is live. Anything left blank falls back to what the
+server is configured with.
+
+| Group | Setting | What it does |
+|---|---|---|
+| Access | Access token | Shown only when the server requires one |
+| Speech to text | Language | What the caller speaks. English (India), Hindi, Bengali, Gujarati, Kannada, Marathi, Punjabi, Tamil, Telugu or Urdu |
+| | Endpointing | Silence that ends your turn. **The main latency lever:** lower replies sooner, too low cuts you off mid-pause |
+| | Utterance end | Backstop gap for noisy rooms. Deepgram recommends 1000 ms or more |
+| Language model | Model | Model for this call |
+| | System prompt | How the agent should behave. Kept short: it is resent every turn |
+| | Temperature | Off by default, which lets the model use its own — some models reject any other value |
+| | Base URL | Only shown when `ALLOW_BASE_URL_OVERRIDE=true` |
+| Text to speech | Voice | Murf voice id. Pick one in the caller's language, or the reply comes back in another one's accent |
+
+Server-wide defaults for these live in `.env` (`STT_LANGUAGE`, `SYSTEM_PROMPT`, `OPENAI_MODEL`,
+`MURF_VOICE`), and every setting is documented in `.env.example`.
 
 ## Why Rust instead of Python or Node?
 
@@ -81,7 +109,9 @@ job, and that is where Rust pays off.
 ## Roadmap
 
 - More speech-to-text, language model and text-to-speech providers
-- Choosing the provider and model per call from the page
+- Choosing the provider per call from the page
+- Indian-language voices in the voice list, to match the languages on the transcribing side
+- Live captions on the page: transcripts and replies are in the server log only
 
 ## Contributing
 
